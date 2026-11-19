@@ -126,3 +126,200 @@ button:active { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+
+/* Área de agendamentos */
+.secao-agendamentos {
+  margin-top: 36px;
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid #31505e;
+  border-radius: 18px;
+  background: linear-gradient(155deg, #193440e8, #102430f2);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 14px 30px #0002;
+}
+
+.cabecalho-secao {
+  margin-bottom: 24px;
+}
+
+.subtitulo-secao {
+  display: block;
+  margin-bottom: 8px;
+  color: #69e3da;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+
+.secao-agendamentos h2 {
+  margin-bottom: 7px;
+}
+
+.cabecalho-secao p {
+  margin: 0;
+  color: #a9c2ce;
+  font-size: .92rem;
+}
+
+.form-agendamento {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.campo-agendamento {
+  min-width: 0;
+}
+
+.campo-agendamento input,
+.campo-agendamento select {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  margin-bottom: 0;
+  padding: .5em 12px;
+  border: 1px solid #395564;
+  border-radius: 9px;
+  background: #0b1c27;
+  color: #edf8ff;
+  font: inherit;
+}
+
+.botao-agendamento {
+  grid-column: 1 / -1;
+  border: 0;
+  color: #052d32;
+  background: #62dfd1;
+}
+
+.lista-agendamentos {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid #355461;
+}
+
+.lista-agendamentos h3 {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.mensagem-vazia {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed #395564;
+  border-radius: 10px;
+  color: #a9c2ce;
+  text-align: center;
+}
+
+@media (max-width: 650px) {
+  .form-agendamento {
+    grid-template-columns: 1fr;
+  }
+
+  .botao-agendamento {
+    grid-column: auto;
+  }
+}
+
+/* Itens da lista de agendamentos */
+.item-agendamento {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #355461;
+  border-radius: 10px;
+  background: #0b1c27a8;
+}
+
+.informacoes-agendamento {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.informacoes-agendamento strong {
+  color: #ecf8ff;
+}
+
+.informacoes-agendamento span {
+  color: #a9c2ce;
+  font-size: .88rem;
+}
+
+.remover-agendamento {
+  width: auto;
+  min-width: 90px;
+  min-height: 40px;
+  border: 1px solid #9b5962;
+  color: #ffc4cb;
+  background: #492a35;
+}
+
+@media (max-width: 420px) {
+  .item-agendamento {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .remover-agendamento {
+    width: 100%;
+  }
+}
+
+/* Histórico de dosagens */
+.secao-historico {
+  margin-top: 24px;
+}
+
+.lista-historico {
+  display: grid;
+  gap: 12px;
+}
+
+.item-historico {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #355461;
+  border-radius: 10px;
+  background: #0b1c27a8;
+}
+
+.informacoes-historico {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.informacoes-historico strong {
+  color: #ecf8ff;
+}
+
+.informacoes-historico span {
+  color: #a9c2ce;
+  font-size: .88rem;
+}
+
+.status-historico {
+  color: #aff2cf;
+  font-size: .82rem;
+  font-weight: 650;
+}
+
+@media (max-width: 420px) {
+  .item-historico {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

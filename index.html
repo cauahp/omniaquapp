@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -12,19 +13,81 @@
     <canvas class="anemona" width="380" height="210"></canvas>
     <canvas class="anemona" width="380" height="210"></canvas>
   </div>
+
   <header>
     <nav class="largura flex min-h-[72px] items-center justify-between gap-3" aria-label="Principal">
-      <a class="marca text-inherit no-underline" href="#painel"><i class="gota" aria-hidden="true"></i>Omni<span>Aqua</span></a>
-      <span class="online">Online</span>
+      <a class="marca text-inherit no-underline" href="#painel">
+        <i class="gota" aria-hidden="true"></i>Omni<span>Aqua</span>
+      </a>
+      <span class="online">Demonstração</span>
     </nav>
   </header>
+
   <main id="painel" class="largura">
     <section class="capa" aria-labelledby="titulo">
       <canvas id="oceano" aria-hidden="true"></canvas>
       <h1 id="titulo" class="font-semibold">Painel de dosagem</h1>
     </section>
+
     <div id="bombas" class="grade" role="region" aria-label="Bombas peristálticas"></div>
+
+    <!-- Área de agendamentos -->
+    <section class="secao-agendamentos" aria-labelledby="titulo-agendamentos">
+      <div class="cabecalho-secao">
+        <div>
+          <span class="subtitulo-secao">ORGANIZAÇÃO DAS DOSAGENS</span>
+          <h2 id="titulo-agendamentos">Agendamentos</h2>
+          <p>Cadastre e acompanhe os horários das dosagens.</p>
+        </div>
+      </div>
+
+      <form id="form-agendamento" class="form-agendamento">
+        <div class="campo-agendamento">
+          <label for="agendamento-bomba">Solução</label>
+          <select id="agendamento-bomba" name="bomba" required>
+            <option value="1">Cálcio (Ca)</option>
+            <option value="2">Alcalinidade (KH)</option>
+            <option value="3">Magnésio (Mg)</option>
+          </select>
+        </div>
+
+        <div class="campo-agendamento">
+          <label for="agendamento-volume">Quantidade (ml)</label>
+          <input id="agendamento-volume" name="volume" type="number" min="0.01" step="0.01" required>
+        </div>
+
+        <div class="campo-agendamento">
+          <label for="agendamento-horario">Horário</label>
+          <input id="agendamento-horario" name="horario" type="time" required>
+        </div>
+
+        <button type="submit" class="botao-agendamento">Adicionar agendamento</button>
+      </form>
+
+      <div class="lista-agendamentos">
+        <h3>Dosagens programadas</h3>
+        <div id="lista-agendamentos" aria-live="polite">
+          <p class="mensagem-vazia">Nenhum agendamento cadastrado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Área de histórico -->
+    <section class="secao-agendamentos secao-historico" aria-labelledby="titulo-historico">
+      <div class="cabecalho-secao">
+        <div>
+          <span class="subtitulo-secao">ACOMPANHAMENTO</span>
+          <h2 id="titulo-historico">Histórico de dosagens</h2>
+          <p>Consulte os registros das dosagens realizadas na demonstração.</p>
+        </div>
+      </div>
+
+      <div id="lista-historico" class="lista-historico" aria-live="polite">
+        <p class="mensagem-vazia">Nenhuma dosagem registrada.</p>
+      </div>
+    </section>
   </main>
+
   <div id="aviso" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script type="module" src="js/main.js"></script>
