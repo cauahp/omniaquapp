@@ -65,6 +65,13 @@ export default class PumpService {
     return dados;
   }
 
+// Consulta a disponibilidade do dispositivo.
+async getDeviceStatus() {
+  return this.request("/dispositivo/status", {
+    cache: "no-store",
+    signal: AbortSignal.timeout(3000)
+  });
+}
 
 // Consulta o status de uma dosagem pelo identificador.
 async getDoseStatus(comandoId) {

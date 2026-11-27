@@ -15,7 +15,14 @@
   <header>
     <nav class="largura flex min-h-[72px] items-center justify-between gap-3" aria-label="Principal">
       <a class="marca text-inherit no-underline" href="#painel"><i class="gota" aria-hidden="true"></i>Omni<span>Aqua</span></a>
-      <span class="online">Online</span>
+      <span
+  id="status-dispositivo"
+  class="online status-desconhecido"
+  role="status"
+  aria-live="polite"
+>
+  Verificando conexão...
+</span>
     </nav>
   </header>
   <main id="painel" class="largura">

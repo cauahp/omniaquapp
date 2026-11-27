@@ -126,3 +126,29 @@ button:active { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+/* Indicador de disponibilidade do dispositivo */
+
+.online.status-offline {
+  color: #ff9b9b;
+}
+
+.online.status-offline::before {
+  background: #ef4444;
+  animation: none;
+}
+
+.online.status-desconhecido {
+  color: #facc70;
+}
+
+.online.status-desconhecido::before {
+  background: #f59e0b;
+  animation: none;
+}
+
+/* Botões temporariamente indisponíveis */
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

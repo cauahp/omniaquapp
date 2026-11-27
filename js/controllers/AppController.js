@@ -9,10 +9,20 @@ export default class AppController {
     this.service = service;
     this.container = document.getElementById("bombas");
     this.view = new PumpView(this.container);
-    this.feedback = new FeedbackView(document.getElementById("aviso"));
+    this.feedback = new FeedbackView(
+      document.getElementById("aviso")
+    );
+
     this.pendentes = new WeakSet();
 
+    this.statusElement = document.getElementById(
+      "status-dispositivo"
+    );
+
+    this.dispositivoOnline = false;
+
     this.loadPumps();
+    this.monitorarDispositivo();
 
     this.container.addEventListener("submit", evento => {
       evento.preventDefault();
@@ -21,10 +31,92 @@ export default class AppController {
 
     this.container.addEventListener("click", evento => {
       const botao = evento.target.closest(".dosar");
-      if (botao) this.execute(botao.form, false);
+
+      if (botao) {
+        this.execute(botao.form, false);
+      }
     });
 
     initializeOcean();
+  }
+
+  // Consulta periodicamente o status do dispositivo.
+  async monitorarDispositivo() {
+    try {
+      const dados = await this.service.getDeviceStatus();
+
+      this.dispositivoOnline =
+        dados.online === true && dados.broker_online === true;
+
+      if (this.dispositivoOnline) {
+        this.atualizarIndicador("online", "Online");
+
+      } else if (!dados.broker_online) {
+        this.atualizarIndicador(
+          "desconhecido",
+          "MQTT desconectado"
+        );
+
+      } else if (dados.status === "offline") {
+        this.atualizarIndicador("offline", "Offline");
+
+      } else {
+        this.atualizarIndicador(
+          "desconhecido",
+          "Aguardando dispositivo"
+        );
+      }
+
+    } catch (erro) {
+      this.dispositivoOnline = false;
+
+      this.atualizarIndicador(
+        "desconhecido",
+        "Servidor indisponível"
+      );
+
+    } finally {
+      this.atualizarBotoes();
+
+      setTimeout(() => {
+        this.monitorarDispositivo();
+      }, 3000);
+    }
+  }
+
+  // Atualiza o indicador no cabeçalho.
+  atualizarIndicador(status, mensagem) {
+    this.statusElement.classList.remove(
+      "status-offline",
+      "status-desconhecido"
+    );
+
+    if (status !== "online") {
+      this.statusElement.classList.add(`status-${status}`);
+    }
+
+    this.statusElement.textContent = mensagem;
+  }
+
+  // Controla a disponibilidade dos botões.
+  atualizarBotoes() {
+    const formularios = this.container.querySelectorAll("form");
+
+    formularios.forEach(formulario => {
+      const ocupado = this.pendentes.has(formulario);
+
+      const botaoDosar = formulario.querySelector(".dosar");
+      const botaoAgendar = formulario.querySelector(".agendar");
+
+      if (botaoDosar) {
+        botaoDosar.disabled =
+          ocupado || !this.dispositivoOnline;
+      }
+
+      if (botaoAgendar) {
+        botaoAgendar.disabled = ocupado;
+      }
+    });
   }
 
   // Carrega as bombas cadastradas no banco de dados.
@@ -37,13 +129,17 @@ export default class AppController {
       this.container.replaceChildren();
 
       if (bombas.length === 0) {
-        this.container.textContent = "Nenhuma bomba ativa cadastrada.";
+        this.container.textContent =
+          "Nenhuma bomba ativa cadastrada.";
+
         return;
       }
 
       bombas.forEach(bomba => {
         this.view.render(bomba);
       });
+
+      this.atualizarBotoes();
 
     } catch (erro) {
       console.error(erro);
@@ -55,9 +151,17 @@ export default class AppController {
     }
   }
 
-  // Executa uma dosagem manual ou cadastra um agendamento.
+  // Executa dosagens manuais ou cadastra agendamentos.
   async execute(formulario, agendar) {
     if (this.pendentes.has(formulario)) return;
+
+    if (!agendar && !this.dispositivoOnline) {
+      this.feedback.showMessage(
+        "Dispositivo indisponível. Dosagem não enviada."
+      );
+
+      return;
+    }
 
     const { volume, horario } = formulario.elements;
 
@@ -70,25 +174,29 @@ export default class AppController {
     const id = Number(formulario.dataset.bombaId);
     const quantidade = volume.valueAsNumber;
     const hora = horario.value;
-    const botoes = formulario.querySelectorAll("button");
 
     this.pendentes.add(formulario);
     formulario.setAttribute("aria-busy", "true");
 
-    botoes.forEach(botao => {
-      botao.disabled = true;
-    });
+    this.atualizarBotoes();
 
     try {
       if (agendar) {
-        await this.service.scheduleDose(id, quantidade, hora);
+        await this.service.scheduleDose(
+          id,
+          quantidade,
+          hora
+        );
 
         this.feedback.showMessage(
           "Agendamento cadastrado com sucesso!"
         );
 
       } else {
-        const comando = await this.service.doseNow(id, quantidade);
+        const comando = await this.service.doseNow(
+          id,
+          quantidade
+        );
 
         if (!comando.comando_id) {
           throw new Error(
@@ -101,9 +209,10 @@ export default class AppController {
           0
         );
 
-        const dosagem = await this.service.waitForDoseConfirmation(
-          comando.comando_id
-        );
+        const dosagem =
+          await this.service.waitForDoseConfirmation(
+            comando.comando_id
+          );
 
         switch (dosagem.status) {
           case "CONCLUIDO":
@@ -145,9 +254,7 @@ export default class AppController {
       this.pendentes.delete(formulario);
       formulario.removeAttribute("aria-busy");
 
-      botoes.forEach(botao => {
-        botao.disabled = false;
-      });
+      this.atualizarBotoes();
     }
   }
 }

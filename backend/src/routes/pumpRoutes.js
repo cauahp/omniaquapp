@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { pool } from "../config/db.js";
-import { publicarComando } from "../config/mqtt.js";
+import {
+  publicarComando,
+  obterStatusDispositivo
+} from "../config/mqtt.js";
 import { calcularTempoAcionamentoMs } from "../services/calibrationService.js";
 
 const router = Router();
@@ -25,6 +28,11 @@ router.post("/bombas/:id/dosar", async (req, res) => {
   const { id } = req.params;
   const { volume_ml } = req.body;
 
+  if (!obterStatusDispositivo().online) {
+  return res.status(503).json({
+    erro: "Dispositivo indisponível. Dosagem não enviada."
+  });
+}
   try {
     // Busca informações da bomba para verificar calibração
     const bombaRes = await pool.query("SELECT * FROM bombas WHERE id = $1 AND ativo = true", [id]);
@@ -98,6 +106,7 @@ router.post("/agendamentos", async (req, res) => {
     res.status(500).json({ erro: "Falha ao cadastrar agendamento", detalhe: error.message });
   }
 });
+
 
 // ========================================================
 // 5. Excluir Agendamento
@@ -173,6 +182,14 @@ router.get("/historico/:comando_id", async (req, res) => {
       erro: "Falha ao consultar o status da dosagem."
     });
   }
+});
+
+// ========================================================
+// 8. Consultar disponibilidade do dispositivo
+// ========================================================
+router.get("/dispositivo/status", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(obterStatusDispositivo());
 });
 
 export default router;

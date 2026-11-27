@@ -110,4 +110,44 @@ function enviarAck(comandoId, idBomba, status, tempoExecutadoMs) {
     }
   });
 }
+// Informa o desligamento antes de encerrar o simulador.
+let encerrando = false;
+
+function desligarSimulador() {
+  if (encerrando) return;
+  encerrando = true;
+
+  console.log(
+    "[SIMULADOR ESP8266] Encerrando dispositivo..."
+  );
+
+  const limite = setTimeout(() => {
+    process.exit(1);
+  }, 3000);
+
+  client.publish(
+    TOPICO_LWT,
+    "offline",
+    { qos: 1, retain: true },
+    (erro) => {
+      if (erro) {
+        console.error(
+          "[SIMULADOR ESP8266] Erro ao informar desligamento:",
+          erro.message
+        );
+
+        process.exit(1);
+        return;
+      }
+
+      client.end(false, () => {
+        clearTimeout(limite);
+        process.exit(0);
+      });
+    }
+  );
+}
+
+process.on("SIGINT", desligarSimulador);
+process.on("SIGTERM", desligarSimulador);
 

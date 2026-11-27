@@ -1,7 +1,10 @@
 import cron from "node-cron";
 import { v4 as uuidv4 } from "uuid";
 import { pool } from "../config/db.js";
-import { publicarComando } from "../config/mqtt.js";
+import {
+  publicarComando,
+  obterStatusDispositivo
+} from "../config/mqtt.js";
 import { calcularTempoAcionamentoMs } from "./calibrationService.js";
 
 /**
@@ -32,6 +35,14 @@ export function inicializarAgendador() {
       console.log(`[Scheduler] Encontrado(s) ${result.rows.length} agendamento(s) para o horário ${horarioAtual}`);
 
       for (const agendamento of result.rows) {
+
+        if (!obterStatusDispositivo().online) {
+  console.warn(
+    `[Scheduler] Agendamento ${agendamento.id} não executado: dispositivo indisponível.`
+  );
+
+  continue;
+}
         const comandoId = uuidv4();
         const tempoMs = calcularTempoAcionamentoMs(agendamento.volume_ml, agendamento.vazao_ml_min);
 
