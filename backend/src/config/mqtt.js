@@ -1,6 +1,8 @@
 import mqtt from "mqtt";
 import dotenv from "dotenv";
-import { pool } from "./db.js";
+import {
+  confirmarDosagem
+} from "../services/doseService.js";
 
 dotenv.config();
 
@@ -8,6 +10,21 @@ const brokerUrl = process.env.MQTT_BROKER_URL || "mqtt://localhost:1883";
 const topicCommand = process.env.MQTT_TOPIC_COMMAND || "omniaqua/bombas/comando";
 const topicStatus = process.env.MQTT_TOPIC_STATUS || "omniaqua/bombas/status";
 const topicLwt = process.env.MQTT_TOPIC_LWT || "omniaqua/dispositivo/status";
+
+let statusDispositivo = "desconhecido";
+let ultimaAtualizacao = null;
+
+// Disponibiliza o estado da comunicação MQTT.
+export function obterStatusDispositivo() {
+  return {
+    broker_online: mqttClient.connected,
+    status: mqttClient.connected
+      ? statusDispositivo
+      : "desconhecido",
+    online: mqttClient.connected && statusDispositivo === "online",
+    ultima_atualizacao: ultimaAtualizacao
+  };
+}
 
 export const mqttClient = mqtt.connect(brokerUrl, {
   clientId: process.env.MQTT_CLIENT_ID || `OmniAqua_Backend_${Math.random().toString(16).slice(2, 8)}`,
@@ -35,41 +52,69 @@ mqttClient.on("message", async (topic, message) => {
   const payloadStr = message.toString();
 
   if (topic === topicLwt) {
-    console.log(`[MQTT] Status da ESP8266: ${payloadStr.toUpperCase()}`);
-    return;
+  const status = payloadStr.trim().toLowerCase();
+
+  if (status === "online" || status === "offline") {
+    statusDispositivo = status;
+    ultimaAtualizacao = new Date().toISOString();
+
+    console.log(`[MQTT] Status da ESP8266: ${status.toUpperCase()}`);
   }
 
-  if (topic === topicStatus) {
-    try {
-      const data = JSON.parse(payloadStr);
-      console.log("[MQTT] Confirmação recebida da ESP8266:", data);
+  return;
+}
+if (topic === topicStatus) {
+  try {
+    const data = JSON.parse(payloadStr);
 
-      const { comando_id, id_bomba, status } = data;
+    const {
+      comando_id,
+      id_bomba,
+      status
+    } = data;
 
-      if (!comando_id) return;
+    console.log(
+      "[MQTT] Confirmação recebida:",
+      data
+    );
 
-      // Atualiza o histórico de auditoria no PostgreSQL
-      const query = `
-        UPDATE historico_dosagens
-        SET status = $1, confirmado_em = NOW()
-        WHERE comando_id = $2
-        RETURNING volume_ml, bomba_id;
-      `;
-      const res = await pool.query(query, [status, comando_id]);
+    const processado = await confirmarDosagem(
+      comando_id,
+      id_bomba,
+      status
+    );
 
-      // Se foi concluído com sucesso, debita o volume usado do reservatório
-      if (status === "CONCLUIDO" && res.rows.length > 0) {
-        const { volume_ml, bomba_id } = res.rows[0];
-        await pool.query(
-          `UPDATE bombas SET volume_restante_ml = GREATEST(0, volume_restante_ml - $1) WHERE id = $2`,
-          [volume_ml, bomba_id]
-        );
-        console.log(`[PostgreSQL] Volume da Bomba ${bomba_id} atualizado (-${volume_ml} ml).`);
-      }
-    } catch (err) {
-      console.error("[MQTT] Erro ao processar mensagem de status:", err.message);
+    if (!processado) {
+      console.warn(
+        `[MQTT] Confirmação duplicada ou inválida ignorada: ${comando_id}`
+      );
+
+      return;
     }
+
+    console.log(
+      `[MQTT] Confirmação processada: ${comando_id} - ${status}`
+    );
+
+  } catch (erro) {
+    console.error(
+      "[MQTT] Erro ao processar confirmação:",
+      erro.message
+    );
   }
+}
+
+});
+
+// Invalida o estado conhecido quando a conexão é perdida.
+mqttClient.on("close", () => {
+  statusDispositivo = "desconhecido";
+  ultimaAtualizacao = null;
+});
+
+mqttClient.on("offline", () => {
+  statusDispositivo = "desconhecido";
+  ultimaAtualizacao = null;
 });
 
 mqttClient.on("error", (err) => {
@@ -79,23 +124,75 @@ mqttClient.on("error", (err) => {
 /**
  * Publica comando no tópico de dosagem
  */
-export function publicarComando(comandoId, idBomba, tempoMs) {
+
+export function publicarComando(
+  comandoId,
+  idBomba,
+  tempoMs
+) {
   return new Promise((resolve, reject) => {
+
+    if (!obterStatusDispositivo().online) {
+      const erro = new Error(
+        "Dispositivo indisponível. Comando não publicado."
+      );
+
+      erro.publicacaoIncerta = false;
+
+      return reject(erro);
+    }
+
     const payload = JSON.stringify({
       comando_id: comandoId,
       id_bomba: Number(idBomba),
       tempo_ms: Number(tempoMs),
-      timestamp: Math.floor(Date.now() / 1000),
+      timestamp: Math.floor(Date.now() / 1000)
     });
 
-    mqttClient.publish(topicCommand, payload, { qos: 1 }, (err) => {
-      if (err) {
-        console.error(`[MQTT] Falha ao publicar comando ${comandoId}:`, err);
-        return reject(err);
-      }
-      console.log(`[MQTT] Comando ${comandoId} publicado para a Bomba ${idBomba} (${tempoMs} ms).`);
-      resolve(payload);
-    });
+    const timeout = setTimeout(() => {
+      const erro = new Error(
+        "Tempo limite de publicação MQTT excedido."
+      );
+
+      erro.publicacaoIncerta = true;
+
+      reject(erro);
+    }, 5000);
+
+    try {
+      mqttClient.publish(
+        topicCommand,
+        payload,
+        { qos: 1 },
+        erro => {
+          clearTimeout(timeout);
+
+          if (erro) {
+            erro.publicacaoIncerta = true;
+
+            console.error(
+              "[MQTT] Falha na publicação:",
+              erro.message
+            );
+
+            return reject(erro);
+          }
+
+          console.log(
+            `[MQTT] Comando ${comandoId} publicado.`
+          );
+
+          resolve(payload);
+        }
+      );
+
+    } catch (erro) {
+      clearTimeout(timeout);
+
+      erro.publicacaoIncerta = true;
+
+      reject(erro);
+    }
   });
 }
 

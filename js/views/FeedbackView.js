@@ -5,7 +5,7 @@ export default class FeedbackView {
     this.movimentoReduzido = window.matchMedia("(prefers-reduced-motion: reduce)");
   }
 
-  showMessage(mensagem) {
+  showMessage(mensagem, duracao = 3500) {
     clearTimeout(this.temporizador);
     this.aviso.textContent = mensagem;
     if (!this.movimentoReduzido.matches) {
@@ -15,7 +15,11 @@ export default class FeedbackView {
         { opacity: 1, transform: "translateY(0)" }
       ], { duration: 220, easing: "ease-out" });
     }
-    this.temporizador = setTimeout(() => { this.aviso.textContent = ""; }, 3500);
+    if (duracao > 0) {
+  this.temporizador = setTimeout(() => {
+    this.aviso.textContent = "";
+  }, duracao);
+}
   }
 
   showDose(id, volume) {
