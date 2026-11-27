@@ -376,7 +376,6 @@ async removeSchedule(botao) {
     this.atualizarBotoes();
 
     try {
-      
 if (agendar) {
   const dias = Array.from(
     formulario.querySelectorAll(

@@ -26,8 +26,6 @@ export default class PumpService {
     horario: ""
   }));
 }
-
-  
 validateDose(id, volume) {
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error(
@@ -189,10 +187,9 @@ async deleteSchedule(id) {
 }
 
   // Cadastra um agendamento de dosagem.
-  
+
 async scheduleDose(id, volume, time, dias = "ALL") {
   this.validateDose(id, volume);
-
   if (
     typeof time !== "string" ||
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)

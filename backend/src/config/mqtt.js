@@ -63,7 +63,6 @@ mqttClient.on("message", async (topic, message) => {
 
   return;
 }
-  
 if (topic === topicStatus) {
   try {
     const data = JSON.parse(payloadStr);
