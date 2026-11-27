@@ -27,32 +27,35 @@ export default class AppController {
     initializeOcean();
   }
 
+  // Carrega as bombas cadastradas no banco de dados.
   async loadPumps() {
-  this.container.textContent = "Carregando bombas...";
+    this.container.textContent = "Carregando bombas...";
 
-  try {
-    const bombas = await this.service.getPumps();
+    try {
+      const bombas = await this.service.getPumps();
 
-    this.container.replaceChildren();
+      this.container.replaceChildren();
 
-    if (bombas.length === 0) {
-      this.container.textContent = "Nenhuma bomba ativa cadastrada.";
-      return;
+      if (bombas.length === 0) {
+        this.container.textContent = "Nenhuma bomba ativa cadastrada.";
+        return;
+      }
+
+      bombas.forEach(bomba => {
+        this.view.render(bomba);
+      });
+
+    } catch (erro) {
+      console.error(erro);
+
+      this.container.textContent =
+        "Não foi possível carregar as bombas. Atualize a página após verificar o servidor.";
+
+      this.feedback.showMessage(erro.message);
     }
-
-    bombas.forEach(bomba => {
-      this.view.render(bomba);
-    });
-
-  } catch (erro) {
-    console.error(erro);
-
-    this.container.textContent =
-      "Não foi possível carregar as bombas. Atualize a página após verificar o servidor.";
-
-    this.feedback.showMessage(erro.message);
   }
-}
+
+  // Executa uma dosagem manual ou cadastra um agendamento.
   async execute(formulario, agendar) {
     if (this.pendentes.has(formulario)) return;
 
@@ -83,19 +86,61 @@ export default class AppController {
         this.feedback.showMessage(
           "Agendamento cadastrado com sucesso!"
         );
+
       } else {
-        await this.service.doseNow(id, quantidade);
+        const comando = await this.service.doseNow(id, quantidade);
+
+        if (!comando.comando_id) {
+          throw new Error(
+            "Comando sem identificador. Consulte o histórico antes de repetir."
+          );
+        }
 
         this.feedback.showMessage(
-          "Comando enviado. Aguardando confirmação do dispositivo."
+          `Bomba ${id}: aguardando confirmação do dispositivo...`,
+          0
         );
+
+        const dosagem = await this.service.waitForDoseConfirmation(
+          comando.comando_id
+        );
+
+        switch (dosagem.status) {
+          case "CONCLUIDO":
+            this.feedback.showMessage(
+              `Bomba ${id}: execução da dosagem confirmada pelo dispositivo!`
+            );
+            break;
+
+          case "ERRO_DISPOSITIVO_OCUPADO":
+            throw new Error(
+              "O dispositivo está ocupado."
+            );
+
+          case "ERRO_PARAMETRO_INVALIDO":
+            throw new Error(
+              "O dispositivo rejeitou os parâmetros da dosagem."
+            );
+
+          case "ERRO_BOMBA_NAO_ENCONTRADA":
+            throw new Error(
+              "Bomba não reconhecida pelo dispositivo."
+            );
+
+          default:
+            throw new Error(
+              `Falha na dosagem: ${dosagem.status}`
+            );
+        }
       }
+
     } catch (erro) {
       console.error(erro);
 
       this.feedback.showMessage(
         erro.message || "Não foi possível concluir a operação."
       );
+
     } finally {
       this.pendentes.delete(formulario);
       formulario.removeAttribute("aria-busy");

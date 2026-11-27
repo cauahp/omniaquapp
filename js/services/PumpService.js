@@ -65,6 +65,54 @@ export default class PumpService {
     return dados;
   }
 
+
+// Consulta o status de uma dosagem pelo identificador.
+async getDoseStatus(comandoId) {
+  return this.request(
+    `/historico/${encodeURIComponent(comandoId)}`,
+    {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000)
+    }
+  );
+}
+
+// Aguarda a confirmação da execução pelo dispositivo.
+async waitForDoseConfirmation(comandoId, timeout = 45000) {
+  const inicio = Date.now();
+
+  while (Date.now() - inicio < timeout) {
+    let dosagem;
+
+    try {
+      dosagem = await this.getDoseStatus(comandoId);
+    } catch (erro) {
+      console.error("Erro ao consultar dosagem:", erro);
+    }
+
+    if (dosagem) {
+      const status = dosagem.status;
+
+      if (status === "CONCLUIDO") {
+        return dosagem;
+      }
+
+      if (
+        status === "FALHA" ||
+        status?.startsWith("ERRO_")
+      ) {
+        return dosagem;
+      }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  throw new Error(
+    "Dosagem não confirmada. Consulte o histórico antes de solicitar outra dosagem."
+  );
+}
+
   // Envia uma solicitação de dosagem manual.
   async doseNow(id, volume) {
     this.validateDose(id, volume);

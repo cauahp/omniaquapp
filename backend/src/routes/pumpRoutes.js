@@ -133,5 +133,47 @@ router.get("/historico", async (req, res) => {
   }
 });
 
+
+// ========================================================
+// 7. Consultar o status de uma dosagem específica
+// ========================================================
+router.get("/historico/:comando_id", async (req, res) => {
+  const { comando_id } = req.params;
+
+  const uuidValido =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (!uuidValido.test(comando_id)) {
+    return res.status(400).json({
+      erro: "Identificador de comando inválido."
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT h.*, b.nome AS nome_bomba, b.solucao
+       FROM historico_dosagens h
+       JOIN bombas b ON h.bomba_id = b.id
+       WHERE h.comando_id = $1`,
+      [comando_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        erro: "Dosagem não encontrada."
+      });
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    console.error("Erro ao consultar dosagem:", error);
+
+    res.status(500).json({
+      erro: "Falha ao consultar o status da dosagem."
+    });
+  }
+});
+
 export default router;
 
