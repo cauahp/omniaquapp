@@ -21,7 +21,12 @@ export async function reservarDosagem(
     const pendentes = await client.query(`
       SELECT comando_id
       FROM historico_dosagens
-      WHERE status IN ('PENDENTE', 'ENVIADO')
+      WHERE status IN (
+  'PENDENTE',
+  'ENVIADO',
+  'PUBLICACAO_INCERTA',
+  'SEM_CONFIRMACAO'
+)
       LIMIT 1
     `);
 
@@ -143,7 +148,11 @@ export async function confirmarDosagem(
            confirmado_em = NOW()
        WHERE comando_id = $2
          AND bomba_id = $3
-         AND status = 'ENVIADO'
+         AND status IN (
+  'ENVIADO',
+  'PUBLICACAO_INCERTA',
+  'SEM_CONFIRMACAO'
+)
        RETURNING volume_ml, bomba_id`,
       [status, comandoId, idBomba]
     );
@@ -178,3 +187,74 @@ export async function confirmarDosagem(
     client.release();
   }
 }
+
+// Registra falhas durante a publicação MQTT.
+export async function registrarFalhaPublicacao(
+  comandoId,
+  publicacaoIncerta = true
+) {
+  const status = publicacaoIncerta
+    ? "PUBLICACAO_INCERTA"
+    : "FALHA_PUBLICACAO";
+
+  await pool.query(
+    `UPDATE historico_dosagens
+     SET status = $1
+     WHERE comando_id = $2
+       AND status = 'ENVIADO'`,
+    [status, comandoId]
+  );
+}
+
+// Identifica comandos que ficaram sem confirmação.
+export async function verificarDosagensPendentes() {
+  const resultado = await pool.query(`
+    UPDATE historico_dosagens
+    SET status = 'SEM_CONFIRMACAO'
+    WHERE status IN (
+      'ENVIADO',
+      'PUBLICACAO_INCERTA'
+    )
+    AND disparado_em < NOW() - INTERVAL '40 seconds'
+    RETURNING comando_id
+  `);
+
+  for (const dosagem of resultado.rows) {
+    console.warn(
+      `[Dosagem] Sem confirmação: ${dosagem.comando_id}`
+    );
+  }
+}
+
+// Inicializa o monitoramento periódico.
+export function iniciarMonitoramentoDosagens() {
+  let verificando = false;
+
+  async function verificar() {
+    if (verificando) return;
+
+    verificando = true;
+
+    try {
+      await verificarDosagensPendentes();
+
+    } catch (erro) {
+      console.error(
+        "[Monitoramento] Erro:",
+        erro.message
+      );
+
+    } finally {
+      verificando = false;
+    }
+  }
+
+  verificar();
+
+  setInterval(verificar, 2000);
+
+  console.log(
+    "[Monitoramento] Verificação de dosagens pendentes iniciada."
+  );
+}
+

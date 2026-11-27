@@ -106,34 +106,48 @@ async getDoseStatus(comandoId) {
 }
 
 // Aguarda a confirmação da execução pelo dispositivo.
-async waitForDoseConfirmation(comandoId, timeout = 45000) {
+
+async waitForDoseConfirmation(
+  comandoId,
+  timeout = 50000
+) {
   const inicio = Date.now();
 
+  const statusFinais = [
+    "CONCLUIDO",
+    "FALHA",
+    "FALHA_PUBLICACAO",
+    "PUBLICACAO_INCERTA",
+    "SEM_CONFIRMACAO"
+  ];
+
   while (Date.now() - inicio < timeout) {
-    let dosagem;
-
     try {
-      dosagem = await this.getDoseStatus(comandoId);
-    } catch (erro) {
-      console.error("Erro ao consultar dosagem:", erro);
-    }
+      const dosagem = await this.getDoseStatus(
+        comandoId
+      );
 
-    if (dosagem) {
-      const status = dosagem.status;
-
-      if (status === "CONCLUIDO") {
-        return dosagem;
-      }
+      const status = String(
+        dosagem.status || ""
+      );
 
       if (
-        status === "FALHA" ||
-        status?.startsWith("ERRO_")
+        statusFinais.includes(status) ||
+        status.startsWith("ERRO_")
       ) {
         return dosagem;
       }
+
+    } catch (erro) {
+      console.warn(
+        "Aguardando confirmação:",
+        erro.message
+      );
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(
+      resolve => setTimeout(resolve, 1000)
+    );
   }
 
   throw new Error(

@@ -4,6 +4,9 @@ import dotenv from "dotenv";
 import { testDbConnection } from "./config/db.js";
 import { inicializarAgendador } from "./services/schedulerService.js";
 import pumpRoutes from "./routes/pumpRoutes.js";
+import {
+  iniciarMonitoramentoDosagens
+} from "./services/doseService.js";
 
 dotenv.config();
 
@@ -33,5 +36,6 @@ app.listen(port, async () => {
 
   // Inicia o motor de agendamentos em background
   inicializarAgendador();
+  iniciarMonitoramentoDosagens();
 });
 

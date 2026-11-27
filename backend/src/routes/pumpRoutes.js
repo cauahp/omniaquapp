@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { pool } from "../config/db.js";
 import {
-  reservarDosagem
+  reservarDosagem,
+  registrarFalhaPublicacao
 } from "../services/doseService.js";
 import {
   normalizarDiasSemana
@@ -29,6 +30,7 @@ router.get("/bombas", async (req, res) => {
 // ========================================================
 // 2. Disparo Manual Imediato ("Dosar Agora")
 // ========================================================
+
 
 router.post("/bombas/:id/dosar", async (req, res) => {
   const id = Number(req.params.id);
@@ -89,8 +91,26 @@ router.post("/bombas/:id/dosar", async (req, res) => {
       erro.message
     );
 
+    const incerta =
+      erro.publicacaoIncerta !== false;
+
+    try {
+      await registrarFalhaPublicacao(
+        dosagem.comandoId,
+        incerta
+      );
+
+    } catch (erroBanco) {
+      console.error(
+        "[Dosagem] Falha ao atualizar histórico:",
+        erroBanco.message
+      );
+    }
+
     res.status(503).json({
-      erro: "Publicação não confirmada. Consulte o histórico antes de repetir a dosagem.",
+      erro: incerta
+        ? "Publicação não confirmada. Consulte o histórico antes de repetir."
+        : "Dispositivo indisponível. Comando não publicado.",
       comando_id: dosagem.comandoId
     });
   }

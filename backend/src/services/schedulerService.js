@@ -1,5 +1,6 @@
 import {
-  reservarDosagem
+  reservarDosagem,
+  registrarFalhaPublicacao
 } from "./doseService.js";
 import cron from "node-cron";
 import { v4 as uuidv4 } from "uuid";
@@ -172,11 +173,22 @@ try {
 
 comandoPublicado = true;
 
-await publicarComando(
-  reserva.comandoId,
-  agendamento.bomba_id,
-  reserva.tempoMs
-);
+
+try {
+  await publicarComando(
+    reserva.comandoId,
+    agendamento.bomba_id,
+    reserva.tempoMs
+  );
+
+} catch (erro) {
+  await registrarFalhaPublicacao(
+    reserva.comandoId,
+    erro.publicacaoIncerta !== false
+  );
+
+  throw erro;
+}
 
 
           console.log(

@@ -125,28 +125,75 @@ mqttClient.on("error", (err) => {
 /**
  * Publica comando no tópico de dosagem
  */
-export function publicarComando(comandoId, idBomba, tempoMs) {
+
+export function publicarComando(
+  comandoId,
+  idBomba,
+  tempoMs
+) {
   return new Promise((resolve, reject) => {
+
     if (!obterStatusDispositivo().online) {
-      return reject(
-        new Error("Dispositivo indisponível. Comando não publicado.")
+      const erro = new Error(
+        "Dispositivo indisponível. Comando não publicado."
       );
+
+      erro.publicacaoIncerta = false;
+
+      return reject(erro);
     }
+
     const payload = JSON.stringify({
       comando_id: comandoId,
       id_bomba: Number(idBomba),
       tempo_ms: Number(tempoMs),
-      timestamp: Math.floor(Date.now() / 1000),
+      timestamp: Math.floor(Date.now() / 1000)
     });
 
-    mqttClient.publish(topicCommand, payload, { qos: 1 }, (err) => {
-      if (err) {
-        console.error(`[MQTT] Falha ao publicar comando ${comandoId}:`, err);
-        return reject(err);
-      }
-      console.log(`[MQTT] Comando ${comandoId} publicado para a Bomba ${idBomba} (${tempoMs} ms).`);
-      resolve(payload);
-    });
+    const timeout = setTimeout(() => {
+      const erro = new Error(
+        "Tempo limite de publicação MQTT excedido."
+      );
+
+      erro.publicacaoIncerta = true;
+
+      reject(erro);
+    }, 5000);
+
+    try {
+      mqttClient.publish(
+        topicCommand,
+        payload,
+        { qos: 1 },
+        erro => {
+          clearTimeout(timeout);
+
+          if (erro) {
+            erro.publicacaoIncerta = true;
+
+            console.error(
+              "[MQTT] Falha na publicação:",
+              erro.message
+            );
+
+            return reject(erro);
+          }
+
+          console.log(
+            `[MQTT] Comando ${comandoId} publicado.`
+          );
+
+          resolve(payload);
+        }
+      );
+
+    } catch (erro) {
+      clearTimeout(timeout);
+
+      erro.publicacaoIncerta = true;
+
+      reject(erro);
+    }
   });
 }
 

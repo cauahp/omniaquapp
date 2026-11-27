@@ -323,6 +323,22 @@ if (agendar) {
               "Bomba não reconhecida pelo dispositivo."
             );
 
+case "FALHA_PUBLICACAO":
+  throw new Error(
+    "Não foi possível publicar o comando de dosagem."
+  );
+
+case "PUBLICACAO_INCERTA":
+  throw new Error(
+    "Publicação não confirmada. Verifique o histórico."
+  );
+
+case "SEM_CONFIRMACAO":
+  throw new Error(
+    "O dispositivo não confirmou a dosagem. Novas dosagens permanecem bloqueadas por segurança."
+  );
+
+
           default:
             throw new Error(
               `Falha na dosagem: ${dosagem.status}`
