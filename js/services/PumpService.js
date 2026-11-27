@@ -24,15 +24,36 @@ export default class PumpService {
   }));
 }
 
-  validateDose(id, volume) {
-    if (!Number.isInteger(id) || id <= 0) {
-      throw new Error("Identificador de bomba inválido.");
-    }
-
-    if (!Number.isFinite(volume) || volume <= 0) {
-      throw new Error("Informe um volume maior que zero.");
-    }
+  
+validateDose(id, volume) {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error(
+      "Identificador de bomba inválido."
+    );
   }
+
+  if (!Number.isFinite(volume) || volume <= 0) {
+    throw new Error(
+      "Informe um volume maior que zero."
+    );
+  }
+
+  if (volume > 999.99) {
+    throw new Error(
+      "O volume não pode ultrapassar 999,99 ml."
+    );
+  }
+
+  if (
+    Math.abs(
+      volume * 100 - Math.round(volume * 100)
+    ) > 0.000001
+  ) {
+    throw new Error(
+      "Informe um volume com até duas casas decimais."
+    );
+  }
+}
 
   // Centraliza as requisições HTTP e o tratamento de erros.
   async request(endpoint, options = {}) {

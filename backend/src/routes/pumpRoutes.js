@@ -5,7 +5,7 @@ import {
   publicarComando,
   obterStatusDispositivo
 } from "../config/mqtt.js";
-import { calcularTempoAcionamentoMs } from "../services/calibrationService.js";
+import { validarDosagem } from "../services/calibrationService.js";
 
 const router = Router();
 
@@ -41,14 +41,18 @@ router.post("/bombas/:id/dosar", async (req, res) => {
     }
 
     const bomba = bombaRes.rows[0];
-    const tempoMs = calcularTempoAcionamentoMs(volume_ml, bomba.vazao_ml_min);
+
+const { volume, tempoMs } = validarDosagem(
+  volume_ml,
+  bomba
+);
     const comandoId = uuidv4();
 
     // Registra na auditoria
     await pool.query(
       `INSERT INTO historico_dosagens (comando_id, bomba_id, volume_ml, tempo_ms, tipo_disparo, status)
        VALUES ($1, $2, $3, $4, 'MANUAL', 'ENVIADO')`,
-      [comandoId, id, volume_ml, tempoMs]
+      [comandoId, id, volume, tempoMs]
     );
 
     // Publica no MQTT
@@ -58,7 +62,7 @@ router.post("/bombas/:id/dosar", async (req, res) => {
       sucesso: true,
       comando_id: comandoId,
       id_bomba: Number(id),
-      volume_ml: Number(volume_ml),
+      volume_ml: volume,
       tempo_ms: tempoMs,
       mensagem: "Comando enviado para a ESP8266 com sucesso.",
     });
@@ -87,26 +91,92 @@ router.get("/agendamentos", async (req, res) => {
 // ========================================================
 // 4. Cadastrar Novo Agendamento
 // ========================================================
+
+// ========================================================
+// 4. Cadastrar Novo Agendamento
+// ========================================================
 router.post("/agendamentos", async (req, res) => {
   const { bomba_id, volume_ml, horario } = req.body;
 
-  if (!bomba_id || !volume_ml || !horario) {
-    return res.status(400).json({ erro: "Parâmetros obrigatórios: bomba_id, volume_ml, horario." });
+  if (
+    typeof bomba_id !== "number" &&
+    typeof bomba_id !== "string"
+  ) {
+    return res.status(400).json({
+      erro: "Identificador de bomba inválido."
+    });
+  }
+
+  const id = Number(bomba_id);
+
+  if (
+    !Number.isInteger(id) ||
+    id <= 0 ||
+    id > 2147483647
+  ) {
+    return res.status(400).json({
+      erro: "Identificador de bomba inválido."
+    });
+  }
+
+  if (
+    typeof horario !== "string" ||
+    !/^([01]\d|2[0-3]):[0-5]\d$/.test(horario)
+  ) {
+    return res.status(400).json({
+      erro: "Informe um horário válido no formato HH:MM."
+    });
   }
 
   try {
+    const bombaRes = await pool.query(
+      "SELECT * FROM bombas WHERE id = $1 AND ativo = true",
+      [id]
+    );
+
+    if (bombaRes.rows.length === 0) {
+      return res.status(404).json({
+        erro: "Bomba não encontrada ou inativa."
+      });
+    }
+
+    const bomba = bombaRes.rows[0];
+
+    let volume;
+
+    try {
+      const dosagem = validarDosagem(
+        volume_ml,
+        bomba,
+        false
+      );
+
+      volume = dosagem.volume;
+
+    } catch (erro) {
+      return res.status(400).json({
+        erro: erro.message
+      });
+    }
+
     const result = await pool.query(
-      `INSERT INTO agendamentos (bomba_id, volume_ml, horario)
+      `INSERT INTO agendamentos
+        (bomba_id, volume_ml, horario)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [bomba_id, volume_ml, horario]
+      [id, volume, horario]
     );
+
     res.status(201).json(result.rows[0]);
+
   } catch (error) {
-    res.status(500).json({ erro: "Falha ao cadastrar agendamento", detalhe: error.message });
+    console.error("Erro ao cadastrar agendamento:", error);
+
+    res.status(500).json({
+      erro: "Falha ao cadastrar agendamento."
+    });
   }
 });
-
 
 // ========================================================
 // 5. Excluir Agendamento
