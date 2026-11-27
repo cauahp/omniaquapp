@@ -1,3 +1,4 @@
+
 import PumpService from "../services/PumpService.js";
 import PumpView from "../views/PumpView.js";
 import FeedbackView from "../views/FeedbackView.js";
@@ -12,45 +13,70 @@ export default class AppController {
     this.pendentes = new WeakSet();
 
     this.service.getPumps().forEach(bomba => this.view.render(bomba));
+
     this.container.addEventListener("submit", evento => {
       evento.preventDefault();
       this.execute(evento.target, true);
     });
+
     this.container.addEventListener("click", evento => {
       const botao = evento.target.closest(".dosar");
       if (botao) this.execute(botao.form, false);
     });
+
     initializeOcean();
   }
 
   async execute(formulario, agendar) {
     if (this.pendentes.has(formulario)) return;
+
     const { volume, horario } = formulario.elements;
-    const valido = agendar ? formulario.reportValidity() : volume.reportValidity();
+
+    const valido = agendar
+      ? formulario.reportValidity()
+      : volume.reportValidity();
+
     if (!valido) return;
 
     const id = Number(formulario.dataset.bombaId);
     const quantidade = volume.valueAsNumber;
     const hora = horario.value;
     const botoes = formulario.querySelectorAll("button");
+
     this.pendentes.add(formulario);
     formulario.setAttribute("aria-busy", "true");
-    botoes.forEach(botao => { botao.disabled = true; });
+
+    botoes.forEach(botao => {
+      botao.disabled = true;
+    });
 
     try {
       if (agendar) {
         await this.service.scheduleDose(id, quantidade, hora);
+
+        this.feedback.showMessage(
+          "Agendamento cadastrado com sucesso!"
+        );
       } else {
         await this.service.doseNow(id, quantidade);
-        this.feedback.showDose(id, quantidade);
+
+        this.feedback.showMessage(
+          "Comando enviado. Aguardando confirmação do dispositivo."
+        );
       }
     } catch (erro) {
       console.error(erro);
-      this.feedback.showMessage("Não foi possível concluir a operação. Tente novamente.");
+
+      this.feedback.showMessage(
+        erro.message || "Não foi possível concluir a operação."
+      );
     } finally {
       this.pendentes.delete(formulario);
       formulario.removeAttribute("aria-busy");
-      botoes.forEach(botao => { botao.disabled = false; });
+
+      botoes.forEach(botao => {
+        botao.disabled = false;
+      });
     }
   }
 }

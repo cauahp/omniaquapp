@@ -1,3 +1,4 @@
+
 export default class PumpService {
   constructor(apiUrl = "http://localhost:3000/api") {
     this.apiUrl = apiUrl;
@@ -15,60 +16,79 @@ export default class PumpService {
     if (!Number.isInteger(id) || id <= 0) {
       throw new Error("Identificador de bomba inválido.");
     }
+
     if (!Number.isFinite(volume) || volume <= 0) {
       throw new Error("Informe um volume maior que zero.");
     }
   }
 
-  async doseNow(id, volume) {
-    this.validateDose(id, volume);
-    const payload = { id_bomba: id, volume_ml: volume };
+  // Centraliza as requisições HTTP e o tratamento de erros.
+  async request(endpoint, options = {}) {
+    let resposta;
 
     try {
-      const resposta = await fetch(`${this.apiUrl}/bombas/${id}/dosar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ volume_ml: volume }),
-      });
-      if (resposta.ok) {
-        const dados = await resposta.json();
-        console.log("[PumpService] Dose confirmada pela API:", dados);
-        return dados;
-      }
+      resposta = await fetch(`${this.apiUrl}${endpoint}`, options);
     } catch {
-      // Backend offline: fallback automático para modo simulado
-      console.info("[PumpService] Backend offline: operando em modo de simulação local.");
+      throw new Error(
+        "Falha de comunicação com o servidor. Verifique o estado da operação antes de repetir."
+      );
     }
 
-    await Promise.resolve();
-    console.log(payload);
-    return payload;
+    const dados = await resposta.json().catch(() => null);
+
+    if (!resposta.ok) {
+      throw new Error(
+        dados?.detalhe ||
+        dados?.erro ||
+        `Erro na API: ${resposta.status}`
+      );
+    }
+
+    if (!dados) {
+      throw new Error(
+        "Resposta inválida do servidor. Verifique o estado da operação antes de repetir."
+      );
+    }
+
+    return dados;
   }
 
+  // Envia uma solicitação de dosagem manual.
+  async doseNow(id, volume) {
+    this.validateDose(id, volume);
+
+    return this.request(`/bombas/${id}/dosar`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        volume_ml: volume
+      })
+    });
+  }
+
+  // Cadastra um agendamento de dosagem.
   async scheduleDose(id, volume, time) {
     this.validateDose(id, volume);
-    if (typeof time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+
+    if (
+      typeof time !== "string" ||
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)
+    ) {
       throw new Error("Informe um horário válido no formato HH:MM.");
     }
-    const payload = { id_bomba: id, volume_ml: volume, horario: time };
 
-    try {
-      const resposta = await fetch(`${this.apiUrl}/agendamentos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bomba_id: id, volume_ml: volume, horario: time }),
-      });
-      if (resposta.ok) {
-        const dados = await resposta.json();
-        console.log("[PumpService] Agendamento registrado pela API:", dados);
-        return dados;
-      }
-    } catch {
-      console.info("[PumpService] Backend offline: operando em modo de simulação local.");
-    }
-
-    await Promise.resolve();
-    console.log(payload);
-    return payload;
+    return this.request("/agendamentos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        bomba_id: id,
+        volume_ml: volume,
+        horario: time
+      })
+    });
   }
 }
