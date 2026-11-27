@@ -2,6 +2,9 @@ import { Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { pool } from "../config/db.js";
 import {
+  normalizarDiasSemana
+} from "../services/scheduleService.js";
+import {
   publicarComando,
   obterStatusDispositivo
 } from "../config/mqtt.js";
@@ -92,11 +95,13 @@ router.get("/agendamentos", async (req, res) => {
 // 4. Cadastrar Novo Agendamento
 // ========================================================
 
-// ========================================================
-// 4. Cadastrar Novo Agendamento
-// ========================================================
 router.post("/agendamentos", async (req, res) => {
-  const { bomba_id, volume_ml, horario } = req.body;
+  const {
+    bomba_id,
+    volume_ml,
+    horario,
+    dias_semana = "ALL"
+  } = req.body;
 
   if (
     typeof bomba_id !== "number" &&
@@ -124,7 +129,17 @@ router.post("/agendamentos", async (req, res) => {
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(horario)
   ) {
     return res.status(400).json({
-      erro: "Informe um horário válido no formato HH:MM."
+      erro: "Informe um horário válido."
+    });
+  }
+
+  let dias;
+
+  try {
+    dias = normalizarDiasSemana(dias_semana);
+  } catch (erro) {
+    return res.status(400).json({
+      erro: erro.message
     });
   }
 
@@ -140,14 +155,12 @@ router.post("/agendamentos", async (req, res) => {
       });
     }
 
-    const bomba = bombaRes.rows[0];
-
     let volume;
 
     try {
       const dosagem = validarDosagem(
         volume_ml,
-        bomba,
+        bombaRes.rows[0],
         false
       );
 
@@ -159,18 +172,52 @@ router.post("/agendamentos", async (req, res) => {
       });
     }
 
+    // Verifica conflitos no mesmo horário.
+    const existentes = await pool.query(
+      `SELECT id, dias_semana
+       FROM agendamentos
+       WHERE horario = $1
+         AND ativo = true`,
+      [horario]
+    );
+
+    const conflito = existentes.rows.some(item => {
+      if (
+        dias === "ALL" ||
+        item.dias_semana === "ALL"
+      ) {
+        return true;
+      }
+
+      const diasExistentes =
+        item.dias_semana.split(",");
+
+      return dias.split(",").some(
+        dia => diasExistentes.includes(dia)
+      );
+    });
+
+    if (conflito) {
+      return res.status(409).json({
+        erro: "Já existe uma dosagem agendada para esse horário em um dos dias selecionados."
+      });
+    }
+
     const result = await pool.query(
       `INSERT INTO agendamentos
-        (bomba_id, volume_ml, horario)
-       VALUES ($1, $2, $3)
+        (bomba_id, volume_ml, horario, dias_semana)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [id, volume, horario]
+      [id, volume, horario, dias]
     );
 
     res.status(201).json(result.rows[0]);
 
   } catch (error) {
-    console.error("Erro ao cadastrar agendamento:", error);
+    console.error(
+      "Erro ao cadastrar agendamento:",
+      error
+    );
 
     res.status(500).json({
       erro: "Falha ao cadastrar agendamento."

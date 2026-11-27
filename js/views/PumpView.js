@@ -19,6 +19,48 @@ export default class PumpView {
                min="0.01" step="0.01" required>
         <label for="horario-${bombaId}">Horário (HH:MM)</label>
         <input id="horario-${bombaId}" name="horario" type="time" required>
+
+<fieldset class="dias-semana">
+  <legend>Dias da semana</legend>
+
+  <div class="seletor-dias">
+    <label>
+      <input type="checkbox" name="dias_semana" value="1" checked>
+      <span>Seg</span>
+    </label>
+
+    <label>
+      <input type="checkbox" name="dias_semana" value="2" checked>
+      <span>Ter</span>
+    </label>
+
+    <label>
+      <input type="checkbox" name="dias_semana" value="3" checked>
+      <span>Qua</span>
+    </label>
+
+    <label>
+      <input type="checkbox" name="dias_semana" value="4" checked>
+      <span>Qui</span>
+    </label>
+
+    <label>
+      <input type="checkbox" name="dias_semana" value="5" checked>
+      <span>Sex</span>
+    </label>
+
+    <label>
+      <input type="checkbox" name="dias_semana" value="6" checked>
+      <span>Sáb</span>
+    </label>
+
+    <label>
+      <input type="checkbox" name="dias_semana" value="7" checked>
+      <span>Dom</span>
+    </label>
+  </div>
+</fieldset>
+
         <button type="submit" class="agendar">Agendar Dosagem</button>
         <button type="button" class="dosar">Dosar Agora</button>
       </form>`;

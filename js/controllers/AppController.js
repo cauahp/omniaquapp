@@ -2,6 +2,7 @@
 import PumpService from "../services/PumpService.js";
 import PumpView from "../views/PumpView.js";
 import FeedbackView from "../views/FeedbackView.js";
+import ScheduleView from "../views/ScheduleView.js";
 import { initializeOcean } from "../views/OceanView.js";
 
 export default class AppController {
@@ -20,6 +21,29 @@ export default class AppController {
     );
 
     this.dispositivoOnline = false;
+
+    this.scheduleContainer = document.getElementById(
+  "lista-agendamentos"
+);
+
+this.scheduleView = new ScheduleView(
+  this.scheduleContainer
+);
+
+this.loadSchedules();
+
+this.scheduleContainer.addEventListener(
+  "click",
+  evento => {
+    const botao = evento.target.closest(
+      ".excluir-agendamento"
+    );
+
+    if (botao) {
+      this.removeSchedule(botao);
+    }
+  }
+);
 
     this.loadPumps();
     this.monitorarDispositivo();
@@ -119,6 +143,53 @@ export default class AppController {
     });
   }
 
+
+async loadSchedules() {
+  try {
+    const agendamentos =
+      await this.service.getSchedules();
+
+    this.scheduleView.render(agendamentos);
+
+  } catch (erro) {
+    this.scheduleView.showError(
+      "Não foi possível carregar os agendamentos."
+    );
+  }
+}
+
+async removeSchedule(botao) {
+  const id = Number(botao.dataset.id);
+
+  if (!Number.isInteger(id) || id <= 0) return;
+
+  if (!window.confirm(
+    "Deseja excluir este agendamento?"
+  )) {
+    return;
+  }
+
+  botao.disabled = true;
+
+  try {
+    await this.service.deleteSchedule(id);
+
+    this.feedback.showMessage(
+      "Agendamento excluído com sucesso!"
+    );
+
+    await this.loadSchedules();
+
+  } catch (erro) {
+    this.feedback.showMessage(
+      erro.message
+    );
+
+  } finally {
+    botao.disabled = false;
+  }
+}
+
   // Carrega as bombas cadastradas no banco de dados.
   async loadPumps() {
     this.container.textContent = "Carregando bombas...";
@@ -181,16 +252,32 @@ export default class AppController {
     this.atualizarBotoes();
 
     try {
-      if (agendar) {
-        await this.service.scheduleDose(
-          id,
-          quantidade,
-          hora
-        );
+      
+if (agendar) {
+  const dias = Array.from(
+    formulario.querySelectorAll(
+      'input[name="dias_semana"]:checked'
+    )
+  ).map(input => Number(input.value));
 
-        this.feedback.showMessage(
-          "Agendamento cadastrado com sucesso!"
-        );
+  if (dias.length === 0) {
+    throw new Error(
+      "Selecione pelo menos um dia da semana."
+    );
+  }
+
+  await this.service.scheduleDose(
+    id,
+    quantidade,
+    hora,
+    dias
+  );
+
+  this.feedback.showMessage(
+    "Agendamento cadastrado com sucesso!"
+  );
+
+  await this.loadSchedules();
 
       } else {
         const comando = await this.service.doseNow(

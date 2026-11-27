@@ -156,27 +156,59 @@ async waitForDoseConfirmation(comandoId, timeout = 45000) {
     });
   }
 
-  // Cadastra um agendamento de dosagem.
-  async scheduleDose(id, volume, time) {
-    this.validateDose(id, volume);
+  async getSchedules() {
+  return this.request("/agendamentos", {
+    cache: "no-store"
+  });
+}
 
-    if (
-      typeof time !== "string" ||
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)
-    ) {
-      throw new Error("Informe um horário válido no formato HH:MM.");
+async deleteSchedule(id) {
+  return this.request(
+    `/agendamentos/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE"
     }
+  );
+}
 
-    return this.request("/agendamentos", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        bomba_id: id,
-        volume_ml: volume,
-        horario: time
-      })
-    });
+  // Cadastra um agendamento de dosagem.
+  
+async scheduleDose(id, volume, time, dias = "ALL") {
+  this.validateDose(id, volume);
+
+  if (
+    typeof time !== "string" ||
+    !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)
+  ) {
+    throw new Error(
+      "Informe um horário válido."
+    );
   }
+
+  if (
+    dias !== "ALL" &&
+    (
+      !Array.isArray(dias) ||
+      dias.length === 0 ||
+      dias.some(dia => !/^[1-7]$/.test(String(dia)))
+    )
+  ) {
+    throw new Error(
+      "Selecione pelo menos um dia válido."
+    );
+  }
+
+  return this.request("/agendamentos", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      bomba_id: id,
+      volume_ml: volume,
+      horario: time,
+      dias_semana: dias
+    })
+  });
+}
 }
