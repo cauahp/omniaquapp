@@ -3,7 +3,7 @@ export default class PumpView {
     this.container = container;
   }
 
-  render({ id, solucao, cor, volume, horario }) {
+  render({ id, nome, solucao, cor, volume, horario }) {
     const bombaId = Number(id);
     const cartao = document.createElement("article");
     cartao.className = "bomba";
@@ -24,6 +24,7 @@ export default class PumpView {
       </form>`;
 
     // Dados textuais são inseridos como texto, inclusive quando vierem da API.
+    cartao.querySelector("h2").textContent = nome || `Bomba ${bombaId}`;
     cartao.querySelector(".solucao").textContent = solucao;
     cartao.querySelector('[name="volume"]').value = volume;
     cartao.querySelector('[name="horario"]').value = horario;

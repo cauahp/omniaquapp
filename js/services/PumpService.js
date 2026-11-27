@@ -4,13 +4,25 @@ export default class PumpService {
     this.apiUrl = apiUrl;
   }
 
-  getPumps() {
-    return [
-      { id: 1, solucao: "Solução A", cor: "#74e3d2", volume: 5, horario: "08:00" },
-      { id: 2, solucao: "Solução B", cor: "#94cfff", volume: 5, horario: "08:00" },
-      { id: 3, solucao: "Solução C", cor: "#c3b4fa", volume: 5, horario: "08:00" }
-    ];
+  async getPumps() {
+  const bombas = await this.request("/bombas");
+
+  if (!Array.isArray(bombas)) {
+    throw new Error("Resposta inválida ao consultar as bombas.");
   }
+
+  return bombas.map(bomba => ({
+    id: Number(bomba.id),
+    nome: bomba.nome,
+    solucao: bomba.solucao,
+    cor: bomba.cor,
+    vazao: Number(bomba.vazao_ml_min),
+    capacidade: Number(bomba.capacidade_recipiente_ml),
+    volumeRestante: Number(bomba.volume_restante_ml),
+    volume: "",
+    horario: ""
+  }));
+}
 
   validateDose(id, volume) {
     if (!Number.isInteger(id) || id <= 0) {

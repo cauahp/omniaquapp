@@ -12,7 +12,7 @@ export default class AppController {
     this.feedback = new FeedbackView(document.getElementById("aviso"));
     this.pendentes = new WeakSet();
 
-    this.service.getPumps().forEach(bomba => this.view.render(bomba));
+    this.loadPumps();
 
     this.container.addEventListener("submit", evento => {
       evento.preventDefault();
@@ -27,6 +27,32 @@ export default class AppController {
     initializeOcean();
   }
 
+  async loadPumps() {
+  this.container.textContent = "Carregando bombas...";
+
+  try {
+    const bombas = await this.service.getPumps();
+
+    this.container.replaceChildren();
+
+    if (bombas.length === 0) {
+      this.container.textContent = "Nenhuma bomba ativa cadastrada.";
+      return;
+    }
+
+    bombas.forEach(bomba => {
+      this.view.render(bomba);
+    });
+
+  } catch (erro) {
+    console.error(erro);
+
+    this.container.textContent =
+      "Não foi possível carregar as bombas. Atualize a página após verificar o servidor.";
+
+    this.feedback.showMessage(erro.message);
+  }
+}
   async execute(formulario, agendar) {
     if (this.pendentes.has(formulario)) return;
 
