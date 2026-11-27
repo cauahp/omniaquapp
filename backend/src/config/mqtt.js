@@ -1,6 +1,8 @@
 import mqtt from "mqtt";
 import dotenv from "dotenv";
-import { pool } from "./db.js";
+import {
+  confirmarDosagem
+} from "../services/doseService.js";
 
 dotenv.config();
 
@@ -61,37 +63,48 @@ mqttClient.on("message", async (topic, message) => {
 
   return;
 }
-  if (topic === topicStatus) {
-    try {
-      const data = JSON.parse(payloadStr);
-      console.log("[MQTT] Confirmação recebida da ESP8266:", data);
+  
+if (topic === topicStatus) {
+  try {
+    const data = JSON.parse(payloadStr);
 
-      const { comando_id, id_bomba, status } = data;
+    const {
+      comando_id,
+      id_bomba,
+      status
+    } = data;
 
-      if (!comando_id) return;
+    console.log(
+      "[MQTT] Confirmação recebida:",
+      data
+    );
 
-      // Atualiza o histórico de auditoria no PostgreSQL
-      const query = `
-        UPDATE historico_dosagens
-        SET status = $1, confirmado_em = NOW()
-        WHERE comando_id = $2
-        RETURNING volume_ml, bomba_id;
-      `;
-      const res = await pool.query(query, [status, comando_id]);
+    const processado = await confirmarDosagem(
+      comando_id,
+      id_bomba,
+      status
+    );
 
-      // Se foi concluído com sucesso, debita o volume usado do reservatório
-      if (status === "CONCLUIDO" && res.rows.length > 0) {
-        const { volume_ml, bomba_id } = res.rows[0];
-        await pool.query(
-          `UPDATE bombas SET volume_restante_ml = GREATEST(0, volume_restante_ml - $1) WHERE id = $2`,
-          [volume_ml, bomba_id]
-        );
-        console.log(`[PostgreSQL] Volume da Bomba ${bomba_id} atualizado (-${volume_ml} ml).`);
-      }
-    } catch (err) {
-      console.error("[MQTT] Erro ao processar mensagem de status:", err.message);
+    if (!processado) {
+      console.warn(
+        `[MQTT] Confirmação duplicada ou inválida ignorada: ${comando_id}`
+      );
+
+      return;
     }
+
+    console.log(
+      `[MQTT] Confirmação processada: ${comando_id} - ${status}`
+    );
+
+  } catch (erro) {
+    console.error(
+      "[MQTT] Erro ao processar confirmação:",
+      erro.message
+    );
   }
+}
+
 });
 
 // Invalida o estado conhecido quando a conexão é perdida.

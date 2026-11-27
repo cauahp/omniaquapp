@@ -1,4 +1,6 @@
-
+import {
+  reservarDosagem
+} from "./doseService.js";
 import cron from "node-cron";
 import { v4 as uuidv4 } from "uuid";
 import { pool } from "../config/db.js";
@@ -144,26 +146,42 @@ export function inicializarAgendador() {
             continue;
           }
 
-          await registrarDosagem(
-            comandoId,
-            agendamento,
-            dosagem.tempoMs,
-            "ENVIADO"
-          );
+let reserva;
 
-          // Evita outro disparo neste ciclo,
-          // inclusive quando a publicação falhar.
-          comandoPublicado = true;
+try {
+  reserva = await reservarDosagem(
+    agendamento.bomba_id,
+    agendamento.volume_ml,
+    "AGENDADO"
+  );
 
-          await publicarComando(
-            comandoId,
-            agendamento.bomba_id,
-            dosagem.tempoMs
-          );
+} catch (erro) {
+  if (erro.statusCode === 409) {
+    await registrarDosagem(
+      comandoId,
+      agendamento,
+      0,
+      "NAO_EXECUTADO_CONFLITO"
+    );
+
+    continue;
+  }
+
+  throw erro;
+}
+
+comandoPublicado = true;
+
+await publicarComando(
+  reserva.comandoId,
+  agendamento.bomba_id,
+  reserva.tempoMs
+);
+
 
           console.log(
-            `[Scheduler] Comando enviado: ${comandoId}`
-          );
+  `[Scheduler] Comando enviado: ${reserva.comandoId}`
+);
 
         } catch (erro) {
           console.error(

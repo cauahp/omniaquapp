@@ -1,6 +1,8 @@
 import { Router } from "express";
-import { v4 as uuidv4 } from "uuid";
 import { pool } from "../config/db.js";
+import {
+  reservarDosagem
+} from "../services/doseService.js";
 import {
   normalizarDiasSemana
 } from "../services/scheduleService.js";
@@ -27,50 +29,70 @@ router.get("/bombas", async (req, res) => {
 // ========================================================
 // 2. Disparo Manual Imediato ("Dosar Agora")
 // ========================================================
+
 router.post("/bombas/:id/dosar", async (req, res) => {
-  const { id } = req.params;
+  const id = Number(req.params.id);
   const { volume_ml } = req.body;
 
+  if (
+    !Number.isInteger(id) ||
+    id <= 0 ||
+    id > 2147483647
+  ) {
+    return res.status(400).json({
+      erro: "Identificador de bomba inválido."
+    });
+  }
+
   if (!obterStatusDispositivo().online) {
-  return res.status(503).json({
-    erro: "Dispositivo indisponível. Dosagem não enviada."
-  });
-}
+    return res.status(503).json({
+      erro: "Dispositivo indisponível. Dosagem não enviada."
+    });
+  }
+
+  let dosagem;
+
   try {
-    // Busca informações da bomba para verificar calibração
-    const bombaRes = await pool.query("SELECT * FROM bombas WHERE id = $1 AND ativo = true", [id]);
-    if (bombaRes.rows.length === 0) {
-      return res.status(404).json({ erro: "Bomba não encontrada ou inativa." });
-    }
-
-    const bomba = bombaRes.rows[0];
-
-const { volume, tempoMs } = validarDosagem(
-  volume_ml,
-  bomba
-);
-    const comandoId = uuidv4();
-
-    // Registra na auditoria
-    await pool.query(
-      `INSERT INTO historico_dosagens (comando_id, bomba_id, volume_ml, tempo_ms, tipo_disparo, status)
-       VALUES ($1, $2, $3, $4, 'MANUAL', 'ENVIADO')`,
-      [comandoId, id, volume, tempoMs]
+    dosagem = await reservarDosagem(
+      id,
+      volume_ml,
+      "MANUAL"
     );
 
-    // Publica no MQTT
-    await publicarComando(comandoId, id, tempoMs);
+  } catch (erro) {
+    return res.status(
+      erro.statusCode || 400
+    ).json({
+      erro: erro.message
+    });
+  }
+
+  try {
+    await publicarComando(
+      dosagem.comandoId,
+      id,
+      dosagem.tempoMs
+    );
 
     res.json({
       sucesso: true,
-      comando_id: comandoId,
-      id_bomba: Number(id),
-      volume_ml: volume,
-      tempo_ms: tempoMs,
-      mensagem: "Comando enviado para a ESP8266 com sucesso.",
+      comando_id: dosagem.comandoId,
+      id_bomba: id,
+      volume_ml: dosagem.volume,
+      tempo_ms: dosagem.tempoMs,
+      mensagem: "Comando enviado com sucesso."
     });
-  } catch (error) {
-    res.status(400).json({ erro: "Falha ao processar disparo de dose", detalhe: error.message });
+
+  } catch (erro) {
+    console.error(
+      "[Dosagem] Falha na publicação:",
+      erro.message
+    );
+
+    res.status(503).json({
+      erro: "Publicação não confirmada. Consulte o histórico antes de repetir a dosagem.",
+      comando_id: dosagem.comandoId
+    });
   }
 });
 
