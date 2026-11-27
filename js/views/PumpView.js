@@ -13,6 +13,18 @@ export default class PumpView {
         <div><h2 id="bomba-${bombaId}">Bomba ${bombaId}</h2><p class="solucao"></p></div>
         <span class="frasco" id="reservatorio-${bombaId}" aria-hidden="true"><span class="liquido"></span></span>
       </div>
+      <div class="informacoes-reservatorio">
+  <div class="saldo-reservatorio">
+    <span>Volume restante</span>
+    <strong id="saldo-${bombaId}">Carregando...</strong>
+  </div>
+
+  <div class="barra-reservatorio">
+    <div id="nivel-${bombaId}" class="nivel-reservatorio"></div>
+  </div>
+
+  <small id="percentual-${bombaId}"></small>
+</div>
       <form aria-labelledby="bomba-${bombaId}" data-bomba-id="${bombaId}">
         <label for="volume-${bombaId}">Quantidade (ml)</label>
         <input id="volume-${bombaId}" name="volume" type="number" inputmode="decimal"
@@ -72,4 +84,48 @@ export default class PumpView {
     cartao.querySelector('[name="horario"]').value = horario;
     this.container.append(cartao);
   }
+
+atualizarReservatorio(bomba) {
+  const id = Number(bomba.id);
+  const restante = Number(bomba.volumeRestante);
+  const capacidade = Number(bomba.capacidade);
+
+  const saldo = document.getElementById(`saldo-${id}`);
+  const nivel = document.getElementById(`nivel-${id}`);
+  const percentual = document.getElementById(
+    `percentual-${id}`
+  );
+
+  if (!saldo || !nivel || !percentual) return;
+
+  if (
+    !Number.isFinite(restante) ||
+    !Number.isFinite(capacidade) ||
+    capacidade <= 0 ||
+    restante < 0 ||
+    restante > capacidade
+  ) {
+    saldo.textContent = "Indisponível";
+    nivel.style.width = "0%";
+    percentual.textContent = "Dados inválidos";
+    return;
+  }
+
+  const porcentagem = restante / capacidade * 100;
+
+  saldo.textContent =
+    `${restante.toLocaleString("pt-BR")} / ` +
+    `${capacidade.toLocaleString("pt-BR")} ml`;
+
+  nivel.style.width = `${porcentagem}%`;
+
+  nivel.classList.toggle(
+    "nivel-baixo",
+    porcentagem <= 20
+  );
+
+  percentual.textContent =
+    `${porcentagem.toFixed(1)}% disponível`;
+}
+
 }

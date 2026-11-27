@@ -257,3 +257,135 @@ button:disabled {
   color: #fff;
 }
 
+/* Informações dos reservatórios */
+
+.informacoes-reservatorio {
+  margin: 15px 0;
+}
+
+.saldo-reservatorio {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.barra-reservatorio {
+  height: 9px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.nivel-reservatorio {
+  height: 100%;
+  width: 0;
+  background: var(--cor, #38bdf8);
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
+
+.nivel-reservatorio.nivel-baixo {
+  background: #ef4444;
+}
+
+.informacoes-reservatorio small {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Painel de histórico */
+
+.painel-historico {
+  margin: 25px 0;
+  padding: 22px;
+  background: rgba(15, 40, 60, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+}
+
+.painel-historico h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.descricao-historico {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+#status-historico {
+  margin: 12px 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.tabela-historico-container {
+  overflow-x: auto;
+}
+
+.tabela-historico {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+.tabela-historico th,
+.tabela-historico td {
+  text-align: left;
+  padding: 13px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid
+    rgba(255, 255, 255, 0.1);
+}
+
+.tabela-historico th {
+  color: #7dd3fc;
+}
+
+.tabela-historico tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.historico-sucesso {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.historico-pendente {
+  color: #facc15;
+  font-weight: 600;
+}
+
+.historico-falha {
+  color: #f87171;
+  font-weight: 600;
+}
+
+/* Notificações de agendamentos */
+
+#notificacoes-agendadas {
+  position: fixed;
+  right: 20px;
+  bottom: 90px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: calc(100vw - 40px);
+}
+
+.notificacao-agendada {
+  background: #123c50;
+  color: #fff;
+  border: 1px solid #38bdf8;
+  border-radius: 12px;
+  padding: 15px 20px;
+  max-width: 350px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+

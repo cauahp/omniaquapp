@@ -5,7 +5,10 @@ export default class PumpService {
   }
 
   async getPumps() {
-  const bombas = await this.request("/bombas");
+  const bombas = await this.request("/bombas", {
+  cache: "no-store",
+  signal: AbortSignal.timeout(5000)
+});
 
   if (!Array.isArray(bombas)) {
     throw new Error("Resposta inválida ao consultar as bombas.");
@@ -224,5 +227,20 @@ async scheduleDose(id, volume, time, dias = "ALL") {
       dias_semana: dias
     })
   });
+}
+async getHistory() {
+  const historico = await this.request(
+    "/historico",
+    {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000)
+    }
+  );
+
+  if (!Array.isArray(historico)) {
+    throw new Error("Histórico inválido.");
+  }
+
+  return historico;
 }
 }

@@ -4,6 +4,7 @@ import PumpView from "../views/PumpView.js";
 import FeedbackView from "../views/FeedbackView.js";
 import ScheduleView from "../views/ScheduleView.js";
 import { initializeOcean } from "../views/OceanView.js";
+import HistoryView from "../views/HistoryView.js";
 
 export default class AppController {
   constructor(service = new PumpService()) {
@@ -61,8 +62,131 @@ this.scheduleContainer.addEventListener(
       }
     });
 
+    this.historyView = new HistoryView(
+  document.getElementById("lista-historico")
+);
+
+this.historicoInicializado = false;
+this.statusDosagens = new Map();
+
+this.monitorarDados();
+
     initializeOcean();
   }
+
+async atualizarReservatorios() {
+  const bombas = await this.service.getPumps();
+
+  for (const bomba of bombas) {
+    this.view.atualizarReservatorio(bomba);
+  }
+}
+
+async atualizarHistorico() {
+  const historico = await this.service.getHistory();
+
+  this.historyView.render(historico);
+
+  const novosStatus = new Map();
+
+  for (const dosagem of historico) {
+    const id = dosagem.comando_id;
+    const anterior = this.statusDosagens.get(id);
+
+    novosStatus.set(id, dosagem.status);
+
+    if (
+      this.historicoInicializado &&
+      dosagem.tipo_disparo === "AGENDADO" &&
+      anterior !== dosagem.status
+    ) {
+      if (dosagem.status === "CONCLUIDO") {
+        this.notificarAgendamento(
+          `${dosagem.nome_bomba}: dosagem agendada ` +
+          `de ${Number(dosagem.volume_ml)} ml concluída.`
+        );
+
+      } else if (![
+        "ENVIADO",
+        "PENDENTE"
+      ].includes(dosagem.status)) {
+        this.notificarAgendamento(
+          `${dosagem.nome_bomba}: ` +
+          this.historyView.formatarStatus(
+            dosagem.status
+          )
+        );
+      }
+    }
+  }
+
+  this.statusDosagens = novosStatus;
+  this.historicoInicializado = true;
+}
+
+notificarAgendamento(mensagem) {
+  const container = document.getElementById(
+    "notificacoes-agendadas"
+  );
+
+  if (!container) return;
+
+  const aviso = document.createElement("div");
+
+  aviso.className = "notificacao-agendada";
+  aviso.textContent = mensagem;
+
+  container.append(aviso);
+
+  setTimeout(() => {
+    aviso.remove();
+  }, 6000);
+}
+
+async monitorarDados() {
+  const status = document.getElementById(
+    "status-historico"
+  );
+
+  try {
+    const resultados = await Promise.allSettled([
+      this.atualizarReservatorios(),
+      this.atualizarHistorico()
+    ]);
+
+    const falhou = resultados.some(
+      resultado => resultado.status === "rejected"
+    );
+
+    if (status) {
+      status.textContent = falhou
+        ? "Falha na atualização. Dados podem estar desatualizados."
+        : "Dados atualizados às " +
+          new Date().toLocaleTimeString("pt-BR", {
+            timeZone: "America/Recife"
+          });
+    }
+
+    if (resultados[0].status === "rejected") {
+      document.querySelectorAll(
+        ".saldo-reservatorio strong"
+      ).forEach(elemento => {
+        elemento.textContent = "Saldo desatualizado";
+      });
+    }
+
+  } catch (erro) {
+    console.error(
+      "Erro ao atualizar painel:",
+      erro.message
+    );
+
+  } finally {
+    setTimeout(() => {
+      this.monitorarDados();
+    }, 3000);
+  }
+}
 
   // Consulta periodicamente o status do dispositivo.
   async monitorarDispositivo() {

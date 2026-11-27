@@ -42,6 +42,42 @@
     Carregando agendamentos...
   </div>
 </section>
+
+<section class="painel-historico">
+  <h2>Histórico de dosagens</h2>
+
+  <p class="descricao-historico">
+    Acompanhe as últimas 50 dosagens realizadas.
+  </p>
+
+  <p id="status-historico">
+    Carregando histórico...
+  </p>
+
+  <div class="tabela-historico-container">
+    <table class="tabela-historico">
+      <thead>
+        <tr>
+          <th>Data e horário</th>
+          <th>Bomba</th>
+          <th>Solução</th>
+          <th>Volume</th>
+          <th>Tipo</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+
+      <tbody id="lista-historico"></tbody>
+    </table>
+  </div>
+</section>
+
+<div
+  id="notificacoes-agendadas"
+  role="status"
+  aria-live="polite">
+</div>
+
   </main>
   <div id="aviso" role="status" aria-live="polite" aria-atomic="true"></div>
 
